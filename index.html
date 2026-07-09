@@ -1,286 +1,178 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sw">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MICKSTER VAULT — Admin</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-:root{--brand:#4A63F0;--brand-glow:rgba(74,99,240,0.15);--bg-main:#0f111a;--bg-card:#151824;--bg-input:#1e2235;--text-main:#f3f4f6;--text-muted:#9ca3af;--border-color:#222638;--green:#11b981;--red:#ef4444;--gold:#f59e0b;--radius-lg:20px;--radius-md:14px;--font-display:'Sora','Plus Jakarta Sans',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;--mono:'Space Grotesk','Plus Jakarta Sans',sans-serif;}
-html,body{width:100%;background:var(--bg-main);font-family:var(--font-body);color:var(--text-main);overflow-x:hidden;min-height:100vh;}
-img{display:block;max-width:100%;}
-button{font-family:inherit;border:none;cursor:pointer;background:none;color:inherit;}
-input,textarea,select{font-family:inherit;color:inherit;-webkit-appearance:none;}
-::selection{background:var(--brand);color:#fff;}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mines 5x5 Predictor Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(circle at 15% 0%,rgba(74,99,240,0.08),transparent 45%),radial-gradient(circle at 100% 20%,rgba(245,158,11,0.08),transparent 40%)}
-.login-card{width:100%;max-width:380px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:24px;padding:32px 26px}
-.login-logo{font-family:var(--font-display);font-size:20px;font-weight:800;text-align:center;margin-bottom:4px}
-.login-logo .blue{color:var(--brand)}
-.login-sub{text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:26px}
-.field{margin-bottom:16px}
-.field label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}
-.field input,.field textarea,.field select{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border-color);font-size:14px;background:var(--bg-main);color:var(--text-main)}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(--gold)}
-.field-error{font-size:11px;color:var(--red);margin-top:5px;display:none;font-weight:600}
-.field.invalid input{border-color:var(--red);background:rgba(239,68,68,0.05)}
-.field.invalid .field-error{display:block}
-.login-submit{width:100%;padding:14px;border-radius:30px;background:var(--gold);color:#0f111a;font-weight:800;font-size:15px;margin-top:6px;cursor:pointer;transition:transform .15s}
-.login-submit:active{transform:scale(.97)}
-.login-back{display:block;text-align:center;margin-top:18px;font-size:12.5px;color:var(--text-muted)}
+        body {
+            background-color: #0f111a;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-.admin-header{position:sticky;top:0;z-index:50;background:rgba(21,24,36,0.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
-.admin-header .logo{font-family:var(--font-display);font-weight:800;font-size:17px;display:flex;align-items:center;gap:8px;color:var(--gold)}
-.admin-exit{font-size:11.5px;font-weight:700;color:var(--text-muted);background:var(--bg-card);border:1px solid var(--border-color);padding:8px 14px;border-radius:20px;cursor:pointer}
-.admin-wrap{padding:22px 20px 60px;max-width:760px;margin:0 auto}
-.admin-sub{font-size:12px;color:var(--text-muted);margin-bottom:20px}
-.admin-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
-.admin-stat{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px 10px;text-align:center}
-.admin-stat b{font-family:var(--mono);font-size:20px;display:block;color:var(--gold)}
-.admin-stat span{font-size:9.5px;color:var(--text-muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase}
-.admin-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px}
-.admin-tab{padding:9px 16px;border-radius:20px;background:var(--bg-card);border:1px solid var(--border-color);font-size:12.5px;font-weight:700;color:var(--text-muted);white-space:nowrap;cursor:pointer;transition:all .2s}
-.admin-tab.active{background:var(--gold);color:#0f111a;border-color:var(--gold)}
-.search-bar{margin:0 0 14px;padding:12px 16px;background:var(--bg-card);border-radius:30px;border:1px solid var(--border-color);display:flex;align-items:center;gap:10px}
-.search-bar input{flex:1;border:none;background:none;font-size:14px;outline:none;color:var(--text-main)}
-.search-bar i{color:var(--text-muted);font-size:18px}
-.admin-add-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:var(--radius-md);background:var(--brand);color:#fff;font-weight:700;font-size:13.5px;margin-bottom:14px;cursor:pointer}
+        .container {
+            background: #1a1d29;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid #2a2f45;
+        }
 
-.user-row{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px;margin-bottom:10px}
-.user-row.banned{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.04)}
-.user-row-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.user-row-avatar{width:38px;height:38px;border-radius:50%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:var(--brand);flex-shrink:0;overflow:hidden}
-.user-row-avatar img{width:100%;height:100%;object-fit:cover}
-.user-row-name{font-size:13.5px;font-weight:700}
-.user-row-sub{font-size:11px;color:var(--text-muted)}
-.user-badge{margin-left:auto;font-size:9px;font-weight:800;padding:4px 8px;border-radius:6px;letter-spacing:.3px;white-space:nowrap}
-.user-badge.ok{background:rgba(17,185,129,0.15);color:var(--green)}
-.user-badge.no{background:rgba(239,68,68,0.15);color:var(--red)}
-.user-row-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--text-muted);margin-bottom:12px}
-.user-row-meta b{color:var(--text-main);font-weight:700}
-.user-row-btns{display:flex;gap:8px}
-.urbtn{flex:1;padding:9px;text-align:center;border-radius:10px;font-size:11.5px;font-weight:700;cursor:pointer;border:1px solid var(--border-color);background:var(--bg-input)}
-.urbtn.ban{color:var(--red)}
-.urbtn.unban{color:var(--green)}
-.urbtn.edit{color:var(--brand)}
-.urbtn.del{color:var(--red)}
-.empty-state{padding:60px 20px;text-align:center;color:var(--text-muted)}
-.empty-state i{font-size:40px;color:var(--gold);margin-bottom:12px;display:block}
+        h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
 
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px}
-.modal-overlay.show{display:flex}
-.sheet{width:100%;max-width:460px;background:var(--bg-card);border-radius:24px;padding:24px 24px 30px;max-height:90vh;overflow-y:auto;border:1px solid var(--border-color)}
-.sheet-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-.sheet-title{font-family:var(--font-display);font-size:19px;font-weight:800}
-.sheet-close{width:32px;height:32px;border-radius:50%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer}
-.submit-btn{width:100%;padding:14px;border-radius:30px;background:var(--brand);color:#fff;font-weight:700;font-size:15px;margin-top:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
-.swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
-.swatch.sel{border-color:#fff;transform:scale(1.12);box-shadow:0 0 0 2px var(--brand)}
-.url-preview{width:44px;height:44px;border-radius:10px;background:var(--bg-main);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:20px;color:var(--text-muted)}
-.url-preview img{width:100%;height:100%;object-fit:cover}
-.field-with-preview{display:flex;gap:10px;align-items:center}
-.field-with-preview .field{flex:1;margin-bottom:0}
+        .subtitle {
+            font-size: 12px;
+            color: #8c94b5;
+            margin-bottom: 20px;
+        }
 
-.toast-stack{position:fixed;top:20px;left:0;right:0;z-index:500;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 20px}
-.toast{background:var(--bg-card);color:#fff;padding:14px 18px;border-radius:var(--radius-md);display:flex;align-items:center;gap:12px;font-size:13.5px;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,0.5);max-width:380px;width:100%;border:1px solid var(--border-color);transform:translateY(-20px);opacity:0;transition:all .3s cubic-bezier(0.34,1.56,0.64,1)}
-.toast.show{transform:translateY(0);opacity:1}
-.toast.success{border-left:4px solid var(--green)}
-.toast.error{border-left:4px solid var(--red)}
-.toast.info{border-left:4px solid var(--brand)}
-</style>
+        /* Muundo wa Gridi ya 5x5 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            background: #11141e;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #232736;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            border: 1px solid #2d3247;
+        }
+
+        /* Mtindo wa Nyota Inapopatikana */
+        .cell.star {
+            background: radial-gradient(circle, #00ffcc 0%, #009977 100%);
+            box-shadow: 0 0 15px #00ffcc;
+            border-color: #00ffcc;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); }
+            100% { transform: scale(1); }
+        }
+
+        /* Kitufe cha Next Signal */
+        .btn {
+            background: #00ffcc;
+            color: #0f111a;
+            border: none;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
+        }
+
+        .btn:hover {
+            background: #00ccaa;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .footer {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #535975;
+        }
+    </style>
 </head>
 <body>
 
-<div class="toast-stack" id="toastStack"></div>
+    <div class="container">
+        <h1>Mines Bot Demo</h1>
+        <p class="subtitle">Inatabiri nyota 4 salama kwenye gridi</p>
 
-<div id="loginGate" class="login-wrap">
-  <div class="login-card">
-    <div class="login-logo"><span style="color:#f3f4f6">MICKSTER</span><span class="blue">VAULT</span></div>
-    <div class="login-sub">Staff sign-in · Admin control panel</div>
-    <form onsubmit="handleAdminLogin(event)">
-      <div class="field" id="fld-au"><label>Username</label><input id="adminUser" type="text" placeholder="Staff username"><div class="field-error">Enter your staff username</div></div>
-      <div class="field" id="fld-ap"><label>Password</label><input id="adminPass" type="password" placeholder="••••••••"><div class="field-error">Invalid credentials</div></div>
-      <button type="submit" class="login-submit"><i class="ri-shield-star-fill"></i> Sign in</button>
-    </form>
-    <a class="login-back" href="website.html">← Back to the store</a>
-  </div>
-</div>
+        <div class="grid" id="minesGrid"></div>
 
-<div id="adminShell" style="display:none">
-  <div class="admin-header">
-    <div class="logo"><i class="ri-shield-star-fill"></i> ADMIN CONTROL</div>
-    <div class="admin-exit" onclick="exitAdmin()">Sign out</div>
-  </div>
-  <div class="admin-wrap">
-    <div class="admin-sub">Staff-only panel · MicksterVault operations</div>
-    <div class="admin-stats">
-      <div class="admin-stat"><b id="admTotalUsers">0</b><span>Users</span></div>
-      <div class="admin-stat"><b id="admTotalOrders">0</b><span>Orders</span></div>
-      <div class="admin-stat"><b id="admTotalItems">0</b><span>Listings</span></div>
+        <button class="btn" onclick="generateSignal()">NEXT SIGNAL 🌟</button>
+
+        <p class="footer">Kumbuka: Hii ni demo ya algorithm ya kubahatisha tu.</p>
     </div>
-    <div class="admin-tabs" id="adminTabs">
-      <div class="admin-tab" data-tab="users" onclick="switchAdminTab('users')"><i class="ri-group-line"></i> Users</div>
-      <div class="admin-tab" data-tab="games" onclick="switchAdminTab('games')"><i class="ri-gamepad-line"></i> Games</div>
-      <div class="admin-tab" data-tab="accounts" onclick="switchAdminTab('accounts')"><i class="ri-id-card-line"></i> Accounts</div>
-      <div class="admin-tab" data-tab="mods" onclick="switchAdminTab('mods')"><i class="ri-bubble-chart-line"></i> Mods</div>
-      <div class="admin-tab" data-tab="campaigns" onclick="switchAdminTab('campaigns')"><i class="ri-flag-2-line"></i> Campaigns</div>
-    </div>
-    <div id="adminPanelBody"></div>
-  </div>
-</div>
 
-<div class="modal-overlay" id="productOverlay" onclick="closeProductOnBg(event)">
-  <div class="sheet">
-    <div class="sheet-top"><div class="sheet-title" id="productEditorTitle">Add Item</div><div class="sheet-close" onclick="closeProductEditor()"><i class="ri-close-line"></i></div></div>
-    <form onsubmit="saveProduct(event)">
-      <input type="hidden" id="pf-id"><input type="hidden" id="pf-type">
-      <div class="field"><label>Name</label><input id="pf-name" type="text" placeholder="Item name"></div>
-      <div class="field"><label id="pf-cat-label">Category</label><input id="pf-cat" type="text" list="catDatalist" placeholder="e.g. Action"><datalist id="catDatalist"></datalist></div>
-      <div class="field-with-preview" style="margin-bottom:16px">
-        <div class="url-preview" id="pf-icon-preview"><i class="ri-image-line"></i></div>
-        <div class="field"><label>Icon image URL</label><input id="pf-icon" type="url" placeholder="https://example.com/icon.png" oninput="updateIconPreview()"></div>
-      </div>
-      <div class="field"><label>Gallery image URLs (comma-separated)</label><input id="pf-images" type="text" placeholder="https://.../1.jpg, https://.../2.jpg"></div>
-      <div class="field" style="display:flex;gap:12px;align-items:flex-end">
-        <div style="flex:1"><label>Price (Tsh)</label><input id="pf-price" type="number" min="0" placeholder="0"></div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding-bottom:13px;white-space:nowrap"><input id="pf-free" type="checkbox" style="width:16px;height:16px"> Free</label>
-      </div>
-      <div class="field" style="display:flex;gap:12px">
-        <div style="flex:1"><label>Badge</label><select id="pf-badge"><option value="">None</option><option value="new">New</option><option value="hot">Hot</option><option value="sale">Sale</option></select></div>
-        <div style="flex:1"><label>Rating (0–5)</label><input id="pf-rating" type="number" min="0" max="5" step="0.1" placeholder="4.5"></div>
-      </div>
-      <div class="field"><label>Accent color</label><div id="pf-colorSwatches" style="display:flex;gap:10px;margin-top:6px"></div><input type="hidden" id="pf-color"></div>
-      <div class="field"><label>Description</label><textarea id="pf-desc" rows="3" placeholder="Short description..."></textarea></div>
-      <button type="submit" class="submit-btn"><i class="ri-save-3-line"></i> Save item</button>
-    </form>
-  </div>
-</div>
+    <script>
+        const gridContainer = document.getElementById('minesGrid');
+        const totalCells = 25;
+        let cells = [];
 
-<div class="modal-overlay" id="campOverlay" onclick="closeCampOnBg(event)">
-  <div class="sheet">
-    <div class="sheet-top"><div class="sheet-title" id="campEditorTitle">Add Campaign</div><div class="sheet-close" onclick="closeCampEditor()"><i class="ri-close-line"></i></div></div>
-    <form onsubmit="saveCampaign(event)">
-      <input type="hidden" id="cf-id">
-      <div class="field"><label>Tag (eyebrow)</label><input id="cf-tag" type="text" placeholder="e.g. Campaign Hub"></div>
-      <div class="field"><label>Title</label><input id="cf-title" type="text" placeholder="e.g. Vault Anniversary Bash"></div>
-      <div class="field" style="display:flex;gap:12px">
-        <div style="flex:1"><label>Card type</label><select id="cf-type"><option value="info">Info / ongoing</option><option value="bonus">Claimable bonus</option></select></div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;padding-bottom:13px;white-space:nowrap"><input id="cf-gold" type="checkbox" style="width:16px;height:16px"> Gold style</label>
-      </div>
-      <div class="field"><label>Direct link (opens on tap)</label><input id="cf-link" type="text" placeholder="https://..."></div>
-      <div class="field"><label>Expires at</label><input id="cf-expires" type="datetime-local"></div>
-      <div class="field"><label>Slideshow (one per line: image URL or emoji | caption)</label><textarea id="cf-images" rows="4" placeholder="🎁 | Unlock your welcome gift"></textarea></div>
-      <button type="submit" class="submit-btn"><i class="ri-save-3-line"></i> Save campaign</button>
-    </form>
-  </div>
-</div>
+        // 1. Kutengeneza masanduku 25 mara ya kwanza programu ikifunguka
+        function createGrid() {
+            gridContainer.innerHTML = '';
+            cells = [];
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.innerText = '❓'; // Alama ya mwanzo
+                gridContainer.appendChild(cell);
+                cells.push(cell);
+            }
+        }
 
-<div class="modal-overlay" id="msgOverlay" onclick="closeMsgOnBg(event)">
-  <div class="sheet" style="max-width:380px">
-    <div class="sheet-top"><div class="sheet-title">Message user</div><div class="sheet-close" onclick="closeMsgModal()"><i class="ri-close-line"></i></div></div>
-    <div id="msgTarget" style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px"></div>
-    <form onsubmit="sendAdminMessage(event)">
-      <div class="field" id="fld-msg-body"><label>Message</label><textarea id="msgBody" rows="4" placeholder="Type the message to send..."></textarea><div class="field-error">Message cannot be empty</div></div>
-      <button type="submit" class="submit-btn"><i class="ri-mail-send-line"></i> Send message</button>
-    </form>
-  </div>
-</div>
+        // 2. Kazi ya kubofya "Next Signal"
+        function generateSignal() {
+            // Kusafisha gridi iliyopita kurudi kwenye hali ya kawaida
+            cells.forEach(cell => {
+                cell.classList.remove('star');
+                cell.innerText = '❓';
+            });
 
-<script>
-const SUPABASE_URL = 'https://vcioivanuhqqucipdoge.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_BJXwjHQLipzLDk3vgki8TQ_3PiiOjl2';
-const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            // Kutengeneza list ya namba 0 hadi 24
+            let positions = Array.from({length: totalCells}, (_, i) => i);
+            let safePositions = [];
 
-const STORAGE_ADMIN_SESSION='mv_admin_session';
-const ADMIN_USERNAME='mickster19';
-const ADMIN_PASSWORD='Mick$120';
-const COLOR_PRESETS=['rgba(74,99,240,0.1)','rgba(239,68,68,0.1)','rgba(17,185,129,0.1)','rgba(245,158,11,0.1)','rgba(139,92,246,0.1)','rgba(99,102,241,0.1)'];
+            // Kuchagua nafasi 4 za kipekee kwa kubahatisha (Random)
+            for (let i = 0; i < 4; i++) {
+                const randomIndex = Math.floor(Math.random() * positions.length);
+                const chosenPos = positions.splice(randomIndex, 1)[0];
+                safePositions.push(chosenPos);
+            }
 
-let GAMES=[], ACCOUNTS=[], MODS=[], CAMPAIGNS=[], CATEGORIES={};
-let currentAdminTab='users';
-let msgTargetUsername=null;
+            // Kuweka nyota kwenye nafasi hizo 4 zilizochaguliwa
+            safePositions.forEach(pos => {
+                cells[pos].classList.add('star');
+                cells[pos].innerText = '⭐';
+            });
+        }
 
-function $(id){return document.getElementById(id);}
+        // Kuanzisha gridi mara tu ukurasa unapofunguka
+        createGrid();
+    </script>
 
-function handleAdminLogin(e){
-  e.preventDefault();
-  $('fld-au').classList.remove('invalid');$('fld-ap').classList.remove('invalid');
-  const u=$('adminUser').value.trim();const p=$('adminPass').value;
-  if(!u){$('fld-au').classList.add('invalid');return;}
-  if(!p){$('fld-ap').classList.add('invalid');return;}
-  if(u.toLowerCase()===ADMIN_USERNAME && p===ADMIN_PASSWORD){
-    localStorage.setItem(STORAGE_ADMIN_SESSION,'1');
-    enterAdminMode();
-  } else {
-    $('fld-ap').classList.add('invalid');
-    showToast('error','⚠️','Invalid staff credentials');
-  }
-}
-
-async function enterAdminMode(){
-  $('loginGate').style.display='none';
-  $('adminShell').style.display='block';
-  showToast('success','🛡️','Staff sign-in confirmed');
-  try {
-    await loadAllData();
-    currentAdminTab='users';
-    await renderAdminShell();
-  } catch(err) {
-    showToast('error','⚠️','Database connection failed');
-    console.error(err);
-  }
-}
-
-function exitAdmin(){
-  localStorage.removeItem(STORAGE_ADMIN_SESSION);
-  $('adminShell').style.display='none';
-  $('loginGate').style.display='flex';
-  $('adminUser').value='';$('adminPass').value='';
-  showToast('info','👋','Signed out of admin panel');
-}
-
-async function loadAllData(){
-  const [gamesR, accountsR, modsR, campaignsR] = await Promise.all([
-    _sb.from('mv_games').select('*'),
-    _sb.from('mv_accounts').select('*'),
-    _sb.from('mv_mods').select('*'),
-    _sb.from('mv_campaigns').select('*').order('expires_at',{ascending:true})
-  ]);
-  GAMES = gamesR.data || [];
-  ACCOUNTS = (accountsR.data||[]).map(a=>({...a, cats:a.cats||[]}));
-  MODS = modsR.data || [];
-  CAMPAIGNS = (campaignsR.data||[]).map(c=>({
-    id:c.id,type:c.type,gold:c.gold,tag:c.tag,title:c.title,images:c.images||[],
-    link:c.link, expiresAt:new Date(c.expires_at).getTime(), claimed:c.claimed
-  }));
-  CATEGORIES = await getCategories();
-}
-
-async function getCategories(){
-  const {data} = await _sb.from('mv_categories').select('*');
-  const map={games:[],accounts:[],mods:[]};
-  (data||[]).forEach(row=>map[row.type]=row.list||[]);
-  return map;
-}
-
-async function saveCategoriesData(c){
-  for(const type of Object.keys(c)){
-    await _sb.from('mv_categories').upsert({type, list:c[type]});
-  }
-}
-
-function isImageUrl(src){if(!src)return false;return /^(https?:\/\/|\/\/|data:image)/i.test(String(src).trim());}
-function mediaTag(src,extraClass=''){if(isImageUrl(src))return `<img src="${src}" class="${extraClass}" loading="lazy" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'${extraClass}',textContent:'🖼️'}));">`;return `<span class="${extraClass}">${src||''}</span>`;}
-
-function updateIconPreview(){
-  const val=$('pf-icon').value.trim();const box=$('pf-icon-preview');if(!box)return;
-  box.innerHTML=isImageUrl(val)?`<img src="${val}" onerror="this.onerror=null;this.parentNode.innerHTML='<i class=\\'ri-image-line\\'></i>'">`:`<i class="ri-image-line"></i>`;
-}
-
-function showToast(type,icon,message,duration=3200){
-  const stack=$('
+</body>
+</html>

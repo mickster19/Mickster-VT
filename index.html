@@ -208,18 +208,29 @@
   #camTarget{position:relative;width:100%;height:100%;}
   #camTarget video, #camTarget canvas.drawingBuffer{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
   #camTarget canvas.drawingBuffer{display:none;}
-  .guide-box{
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:84%;aspect-ratio:2.6/1;
-    border:3px solid var(--gold);border-radius:12px;
-    box-shadow:0 0 0 2000px rgba(0,0,0,.35);
+  .scan-corners{position:absolute;inset:14px;pointer-events:none;}
+  .scan-corners i{position:absolute;width:26px;height:26px;border:3px solid var(--gold);}
+  .scan-corners i:nth-child(1){top:0;left:0;border-right:none;border-bottom:none;border-radius:10px 0 0 0;}
+  .scan-corners i:nth-child(2){top:0;right:0;border-left:none;border-bottom:none;border-radius:0 10px 0 0;}
+  .scan-corners i:nth-child(3){bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 10px;}
+  .scan-corners i:nth-child(4){bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 10px 0;}
+  .scan-corners .sweep{
+    position:absolute;left:0;right:0;height:2px;background:var(--gold);
+    top:0;animation:scanline 1s linear infinite;box-shadow:0 0 12px var(--gold);
   }
-  .guide-box::before{
-    content:"";position:absolute;left:4%;right:4%;height:2px;background:var(--gold);
-    top:0;animation:scanline 1.6s ease-in-out infinite;box-shadow:0 0 10px var(--gold);
+  .hits-row{
+    position:absolute;left:0;right:0;bottom:0;padding:10px 14px;
+    display:flex;gap:8px;overflow-x:auto;
+    background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);
   }
+  .hit-chip{
+    flex:0 0 auto;background:var(--gold);color:var(--ink);border:none;border-radius:12px;
+    padding:9px 14px;font-weight:800;font-size:13.5px;letter-spacing:.5px;cursor:pointer;
+    white-space:nowrap;animation:popIn .25s ease;font-family:'Manrope',sans-serif;
+  }
+  .hit-chip:active{transform:scale(.94);}
+  @keyframes popIn{ from{opacity:0;transform:scale(.7);} to{opacity:1;transform:scale(1);} }
   @keyframes scanline{0%,100%{top:4%;}50%{top:94%;}}
-  .cam-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12.5px;color:#e9e2d1;opacity:.85;}
   .permission-gate{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:16px;padding:0 34px;text-align:center;
@@ -360,10 +371,10 @@
     <div id="camView" style="display:none;flex:1;flex-direction:column;">
       <div class="cam-wrap">
         <div id="camTarget"></div>
-        <div class="guide-box"></div>
-        <div class="cam-hint">Lenga barcode ndefu ya vocha ndani ya fremu</div>
+        <div class="scan-corners"><i></i><i></i><i></i><i></i><div class="sweep"></div></div>
+        <div class="hits-row" id="hitsRow"></div>
       </div>
-      <div class="overlay-bottom">Scan itasimama kiotomatiki mara msimbo utakapotambulika</div>
+      <div class="overlay-bottom" id="scanStatus">Inascan… elekeza kamera kwenye vocha, namba zitatokea hapa chini</div>
     </div>
   </div>
 
@@ -436,8 +447,10 @@
   const ussdPreview = document.getElementById('ussdPreview');
 
   let quaggaRunning = false;
+  let seenCodes = new Set();
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently:true });
+  const hitsRow = document.getElementById('hitsRow');
 
   const BARCODE_READERS = ['code_128_reader','ean_reader','ean_8_reader','code_39_reader','codabar_reader','upc_reader','i2of5_reader'];
 
@@ -476,6 +489,8 @@
     startBtn.disabled = true;
     startBtn.textContent = 'Inafungua kamera…';
     camTarget.innerHTML = '';
+    seenCodes.clear();
+    hitsRow.innerHTML = '';
     Quagga.init({
       inputStream: {
         name: 'Live',
@@ -485,8 +500,7 @@
       },
       locator: { patchSize:'medium', halfSample:true },
       numOfWorkers: 0,
-      frequency: 10,
-      decoder: { readers: BARCODE_READERS },
+      decoder: { readers: BARCODE_READERS, multiple: false },
       locate: true
     }, function(err){
       startBtn.disabled = false;
@@ -510,8 +524,20 @@
   function onBarcodeDetected(result){
     if(!result || !result.codeResult || !result.codeResult.code) return;
     const digits = cleanCode(result.codeResult.code);
-    if(digits.length < 6) return; // ignore noise / partial reads
-    onDecoded(digits);
+    if(digits.length < 5) return; // ignore obvious noise
+    if(seenCodes.has(digits)) return; // already showing this one
+    seenCodes.add(digits);
+    addHitChip(digits);
+    if(navigator.vibrate) navigator.vibrate(35); // quick tick — scanning keeps going
+  }
+
+  function addHitChip(digits){
+    const btn = document.createElement('button');
+    btn.className = 'hit-chip';
+    btn.textContent = digits;
+    btn.addEventListener('click', ()=> onDecoded(digits));
+    hitsRow.prepend(btn);
+    document.getElementById('scanStatus').textContent = 'Namba zimeonekana — gusa moja unayotaka kutumia';
   }
 
   function stopCamera(){

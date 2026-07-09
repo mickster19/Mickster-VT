@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js" defer onload="window.__jsQRLoaded=true" onerror="window.__jsQRFailed=true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js" defer onload="window.__quaggaLoaded=true" onerror="window.__quaggaFailed=true"></script>
 <style>
   :root{
     --cream:#F4EFE4;
@@ -204,13 +205,18 @@
     background:#000;display:flex;align-items:center;justify-content:center;
   }
   video{width:100%;height:100%;object-fit:cover;}
+  #camTarget{position:relative;width:100%;height:100%;}
+  #camTarget video, #camTarget canvas.drawingBuffer{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+  #camTarget canvas.drawingBuffer{display:none;}
   .guide-box{
-    position:absolute;width:68%;aspect-ratio:1/1;border:3px solid var(--gold);border-radius:18px;
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:84%;aspect-ratio:2.6/1;
+    border:3px solid var(--gold);border-radius:12px;
     box-shadow:0 0 0 2000px rgba(0,0,0,.35);
   }
   .guide-box::before{
-    content:"";position:absolute;left:6%;right:6%;height:2px;background:var(--gold);
-    top:0;animation:scanline 1.8s ease-in-out infinite;box-shadow:0 0 10px var(--gold);
+    content:"";position:absolute;left:4%;right:4%;height:2px;background:var(--gold);
+    top:0;animation:scanline 1.6s ease-in-out infinite;box-shadow:0 0 10px var(--gold);
   }
   @keyframes scanline{0%,100%{top:4%;}50%{top:94%;}}
   .cam-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:12.5px;color:#e9e2d1;opacity:.85;}
@@ -353,9 +359,9 @@
 
     <div id="camView" style="display:none;flex:1;flex-direction:column;">
       <div class="cam-wrap">
-        <video id="video" playsinline autoplay muted></video>
+        <div id="camTarget"></div>
         <div class="guide-box"></div>
-        <div class="cam-hint">Lenga msimbo wa vocha ndani ya fremu</div>
+        <div class="cam-hint">Lenga barcode ndefu ya vocha ndani ya fremu</div>
       </div>
       <div class="overlay-bottom">Scan itasimama kiotomatiki mara msimbo utakapotambulika</div>
     </div>
@@ -420,20 +426,20 @@
     }
   });
 
-  // ---------- SCANNER LOGIC ----------
+  // ---------- SCANNER LOGIC (QuaggaJS = real barcodes, jsQR = QR fallback) ----------
   const scannerOverlay = document.getElementById('scannerOverlay');
   const permissionGate = document.getElementById('permissionGate');
   const camView = document.getElementById('camView');
-  const video = document.getElementById('video');
+  const camTarget = document.getElementById('camTarget');
   const resultOverlay = document.getElementById('resultOverlay');
   const resultCode = document.getElementById('resultCode');
   const ussdPreview = document.getElementById('ussdPreview');
 
-  let stream = null;
-  let rafId = null;
-  let scanning = false;
+  let quaggaRunning = false;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently:true });
+
+  const BARCODE_READERS = ['code_128_reader','ean_reader','ean_8_reader','code_39_reader','codabar_reader','upc_reader','i2of5_reader'];
 
   function openScanner(){
     permissionGate.style.display='flex';
@@ -448,6 +454,10 @@
   document.getElementById('navScanBtn').addEventListener('click', openScanner);
   document.getElementById('closeScanBtn').addEventListener('click', closeScanner);
 
+  function cleanCode(raw){
+    return String(raw || '').replace(/[^0-9]/g, '');
+  }
+
   // Camera only starts on this explicit tap — never automatically.
   document.getElementById('startCamBtn').addEventListener('click', async ()=>{
     if(!window.isSecureContext){
@@ -458,61 +468,64 @@
       showToast('Kivinjari hiki hakitumii kamera. Tumia Chrome au Safari mpya.');
       return;
     }
+    if(!window.Quagga){
+      showToast('Hakuna intaneti kupakia scanner — tumia "andika kwa mkono" chini kwa sasa.');
+      return;
+    }
     const startBtn = document.getElementById('startCamBtn');
     startBtn.disabled = true;
     startBtn.textContent = 'Inafungua kamera…';
-    try{
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:{ ideal:'environment' } } });
-      video.srcObject = stream;
-      await video.play().catch(()=>{});
-      permissionGate.style.display='none';
-      camView.style.display='flex';
-      scanning = true;
-      requestAnimationFrame(tick);
-      if(!window.jsQR){
-        showToast('Hakuna intaneti kusoma msimbo — kamera inaonekana lakini tumia "andika kwa mkono" chini');
-      }
-    }catch(err){
-      let msg = 'Imeshindwa kufikia kamera.';
-      if(err && err.name === 'NotAllowedError') msg = 'Umekataa ruhusa ya kamera. Iruhusu kwenye mipangilio ya kivinjari.';
-      else if(err && err.name === 'NotFoundError') msg = 'Hakuna kamera iliyopatikana kwenye kifaa hiki.';
-      else if(err && err.name === 'NotReadableError') msg = 'Kamera inatumiwa na app nyingine.';
-      showToast(msg);
-    }finally{
+    camTarget.innerHTML = '';
+    Quagga.init({
+      inputStream: {
+        name: 'Live',
+        type: 'LiveStream',
+        target: camTarget,
+        constraints: { facingMode: { ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }
+      },
+      locator: { patchSize:'medium', halfSample:true },
+      numOfWorkers: 0,
+      frequency: 10,
+      decoder: { readers: BARCODE_READERS },
+      locate: true
+    }, function(err){
       startBtn.disabled = false;
       startBtn.textContent = 'Ruhusu & Anza Kuscan';
-    }
+      if(err){
+        let msg = 'Imeshindwa kufikia kamera.';
+        if(err.name === 'NotAllowedError') msg = 'Umekataa ruhusa ya kamera. Iruhusu kwenye mipangilio ya kivinjari.';
+        else if(err.name === 'NotFoundError') msg = 'Hakuna kamera iliyopatikana kwenye kifaa hiki.';
+        else if(err.name === 'NotReadableError') msg = 'Kamera inatumiwa na app nyingine.';
+        showToast(msg);
+        return;
+      }
+      permissionGate.style.display='none';
+      camView.style.display='flex';
+      Quagga.start();
+      quaggaRunning = true;
+      Quagga.onDetected(onBarcodeDetected);
+    });
   });
+
+  function onBarcodeDetected(result){
+    if(!result || !result.codeResult || !result.codeResult.code) return;
+    const digits = cleanCode(result.codeResult.code);
+    if(digits.length < 6) return; // ignore noise / partial reads
+    onDecoded(digits);
+  }
+
+  function stopCamera(){
+    if(quaggaRunning && window.Quagga){
+      try{ Quagga.offDetected(onBarcodeDetected); Quagga.stop(); }catch(e){}
+      quaggaRunning = false;
+    }
+    camTarget.innerHTML = '';
+  }
 
   // Stop the camera if the tab/app goes to background, so it never runs unseen.
   document.addEventListener('visibilitychange', ()=>{
     if(document.hidden) stopCamera();
   });
-
-  function stopCamera(){
-    scanning = false;
-    if(rafId) cancelAnimationFrame(rafId);
-    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  }
-
-  function tick(){
-    if(!scanning) return;
-    if(video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR){
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = window.jsQR(imageData.data, imageData.width, imageData.height);
-      if(code && code.data){
-        const digits = code.data.replace(/[^0-9]/g,'');
-        if(digits.length > 0){
-          onDecoded(digits);
-          return;
-        }
-      }
-    }
-    rafId = requestAnimationFrame(tick);
-  }
 
   function onDecoded(code){
     stopCamera();
@@ -549,9 +562,10 @@
     const file = e.target.files[0];
     if(!file) return;
     if(!file.type.startsWith('image/')){ showToast('Chagua faili la picha'); return; }
-    const img = new Image();
     const reader = new FileReader();
     reader.onload = (ev)=>{
+      const dataUrl = ev.target.result;
+      const img = new Image();
       img.onload = ()=>{
         const MAX = 1600;
         let w = img.width, h = img.height;
@@ -562,17 +576,35 @@
         canvas.width = w;
         canvas.height = h;
         ctx.drawImage(img, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const code = window.jsQR ? window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:'attemptBoth' }) : null;
-        if(code && code.data){
-          const digits = code.data.replace(/[^0-9]/g,'');
-          if(digits.length > 0){ showResult(digits); return; }
+
+        function tryQR(){
+          if(!window.jsQR) return finish(null);
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:'attemptBoth' });
+          finish(code && code.data ? cleanCode(code.data) : null);
         }
-        if(!window.jsQR) showToast('Hakuna intaneti kusoma msimbo — andika namba ya vocha kwa mkono chini');
-        else showToast('Imeshindwa kusoma msimbo kwenye picha hiyo — jaribu picha iliyo wazi zaidi');
+        function finish(digits){
+          if(digits && digits.length > 0){ showResult(digits); return; }
+          if(!window.jsQR && !window.Quagga) showToast('Hakuna intaneti kusoma msimbo — andika namba ya vocha kwa mkono chini');
+          else showToast('Imeshindwa kusoma msimbo kwenye picha hiyo — jaribu picha iliyo wazi zaidi, karibu zaidi');
+        }
+
+        if(window.Quagga){
+          Quagga.decodeSingle({
+            src: dataUrl,
+            numOfWorkers: 0,
+            locate: true,
+            decoder: { readers: BARCODE_READERS }
+          }, function(result){
+            const digits = result && result.codeResult ? cleanCode(result.codeResult.code) : null;
+            if(digits){ showResult(digits); } else { tryQR(); }
+          });
+        } else {
+          tryQR();
+        }
       };
       img.onerror = ()=> showToast('Imeshindwa kufungua picha hiyo');
-      img.src = ev.target.result;
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
     fileInput.value = '';

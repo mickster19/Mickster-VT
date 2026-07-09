@@ -183,6 +183,7 @@
     width:52px;height:52px;border-radius:50%;background:var(--ink);color:var(--gold);
     display:flex;align-items:center;justify-content:center;margin-top:-30px;
     box-shadow:0 8px 18px rgba(0,0,0,.3);border:4px solid var(--cream);
+    cursor:pointer;
   }
 
   /* ---------- OVERLAYS (scanner / result) ---------- */
@@ -214,6 +215,7 @@
   .scan-corners i:nth-child(2){top:0;right:0;border-left:none;border-bottom:none;border-radius:0 10px 0 0;}
   .scan-corners i:nth-child(3){bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 10px;}
   .scan-corners i:nth-child(4){bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 10px 0;}
+  .scan-corners.found i{border-color:#59d67c;}
   .scan-corners .sweep{
     position:absolute;left:0;right:0;height:2px;background:var(--gold);
     top:0;animation:scanline 1s linear infinite;box-shadow:0 0 12px var(--gold);
@@ -241,7 +243,8 @@
     padding:15px 30px;font-weight:800;font-size:14.5px;cursor:pointer;letter-spacing:.3px;
   }
   .big-btn:active{transform:scale(.96);}
-  .overlay-bottom{padding:16px 20px calc(18px + env(safe-area-inset-bottom));text-align:center;font-size:11.5px;color:#8a8375;}
+  .overlay-bottom{padding:16px 20px calc(18px + env(safe-area-inset-bottom));text-align:center;font-size:11.5px;color:#8a8375;transition:color .2s ease;}
+  .overlay-bottom.hint{color:var(--gold);font-weight:700;}
 
   /* result */
   .result-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0 30px;text-align:center;}
@@ -254,6 +257,7 @@
     font-family:'Manrope',sans-serif;font-weight:800;font-size:22px;letter-spacing:2px;
     background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
     padding:12px 22px;border-radius:14px;margin:10px 0 4px;
+    word-break:break-all;
   }
   .ussd-preview{color:#c9c2b3;font-size:13px;margin-bottom:10px;}
   .result-actions{display:flex;gap:10px;padding:0 22px 8px;}
@@ -287,6 +291,8 @@
       <div class="splash-wordmark">VOCHASTER</div>
       <div class="scratch-bar"></div>
     </div>
+    <div class="splash-tag">Scan. Piga. Malizika.</div>
+    <div class="splash-dots"><span></span><span></span><span></span></div>
   </div>
 
   <!-- APP -->
@@ -364,14 +370,14 @@
       <div class="result-check">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>
       </div>
-      <p>Vochaster inahitaji ruhusa ya kamera ili kuscan vocha yako. Kamera <strong>haitawaki peke yake</strong> — itafunguka tu baada ya wewe kubonyeza kitufe hapa chini.</p>
+      <p id="permissionText">Vochaster inahitaji ruhusa ya kamera ili kuscan vocha yako. Kamera <strong>haitawaki peke yake</strong> — itafunguka tu baada ya wewe kubonyeza kitufe hapa chini.</p>
       <button class="big-btn" id="startCamBtn">Ruhusu &amp; Anza Kuscan</button>
     </div>
 
     <div id="camView" style="display:none;flex:1;flex-direction:column;">
       <div class="cam-wrap">
         <div id="camTarget"></div>
-        <div class="scan-corners"><i></i><i></i><i></i><i></i><div class="sweep"></div></div>
+        <div class="scan-corners" id="scanCorners"><i></i><i></i><i></i><i></i><div class="sweep"></div></div>
         <div class="hits-row" id="hitsRow"></div>
       </div>
       <div class="overlay-bottom" id="scanStatus">Inascan… elekeza kamera kwenye vocha, namba zitatokea hapa chini</div>
@@ -406,244 +412,373 @@
 
 <script>
 (function(){
+  // =========================================================
   // ---------- SPLASH ----------
+  // =========================================================
   const splash = document.getElementById('splash');
-  setTimeout(()=> splash.classList.add('hide'), 2100);
-  setTimeout(()=> splash.style.display='none', 2700);
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => { splash.style.display = 'none'; }, 550);
+    }, 1500);
+  });
 
-  // ---------- TOAST ----------
-  const toastEl = document.getElementById('toast');
+  // =========================================================
+  // ---------- ELEMENT REFS ----------
+  // =========================================================
+  const scannerOverlay = document.getElementById('scannerOverlay');
+  const resultOverlay  = document.getElementById('resultOverlay');
+  const permissionGate = document.getElementById('permissionGate');
+  const permissionText = document.getElementById('permissionText');
+  const camView        = document.getElementById('camView');
+  const camTarget       = document.getElementById('camTarget');
+  const scanCorners    = document.getElementById('scanCorners');
+  const hitsRow        = document.getElementById('hitsRow');
+  const scanStatus     = document.getElementById('scanStatus');
+  const startCamBtn    = document.getElementById('startCamBtn');
+  const closeScanBtn   = document.getElementById('closeScanBtn');
+  const openScanBtn    = document.getElementById('openScanBtn');
+  const navScanBtn     = document.getElementById('navScanBtn');
+  const uploadBtn      = document.getElementById('uploadBtn');
+  const fileInput      = document.getElementById('fileInput');
+  const manualInput    = document.getElementById('manualInput');
+  const manualSend     = document.getElementById('manualSend');
+  const resultCode     = document.getElementById('resultCode');
+  const ussdPreview    = document.getElementById('ussdPreview');
+  const closeResultBtn = document.getElementById('closeResultBtn');
+  const retryBtn       = document.getElementById('retryBtn');
+  const callBtn        = document.getElementById('callBtn');
+  const shareBtn       = document.getElementById('shareBtn');
+  const toastEl        = document.getElementById('toast');
+
   let toastTimer;
-  function showToast(msg){
+  function toast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 2200);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
   }
-  document.querySelectorAll('[data-toast]').forEach(el=>{
-    el.addEventListener('click', ()=> showToast(el.getAttribute('data-toast')));
+
+  document.querySelectorAll('.nav-item[data-toast]').forEach(btn => {
+    btn.addEventListener('click', () => toast(btn.dataset.toast));
   });
 
-  // ---------- SHARE ----------
-  document.getElementById('shareBtn').addEventListener('click', async ()=>{
-    const shareData = { title:'Vochaster', text:'Vochaster — scan vocha yako na uitumie moja kwa moja.', url: location.href };
-    if(navigator.share){
-      try{ await navigator.share(shareData); }catch(e){}
-    } else if(navigator.clipboard){
-      await navigator.clipboard.writeText(shareData.text + ' ' + shareData.url);
-      showToast('Kiungo kimenakiliwa');
-    } else {
-      showToast('Sambaza haipatikani kwenye kivinjari hiki');
+  // =========================================================
+  // ---------- CODE EXTRACTION HELPERS ----------
+  // =========================================================
+  // Pulls the most plausible voucher number out of raw decoded text
+  // (QR payloads sometimes wrap the number in a URL or label).
+  function extractVoucherCode(raw){
+    if(!raw) return null;
+    const cleaned = String(raw).trim();
+    // Prefer long digit runs (typical scratch-card / recharge codes: 10-20 digits)
+    const digitRuns = cleaned.match(/\d{8,20}/g);
+    if(digitRuns && digitRuns.length){
+      digitRuns.sort((a,b) => b.length - a.length);
+      return digitRuns[0];
     }
-  });
+    // Fallback: alphanumeric token of reasonable length
+    const alnumRuns = cleaned.match(/[A-Za-z0-9]{8,20}/g);
+    if(alnumRuns && alnumRuns.length){
+      alnumRuns.sort((a,b) => b.length - a.length);
+      return alnumRuns[0];
+    }
+    return null;
+  }
 
-  // ---------- SCANNER LOGIC (QuaggaJS = real barcodes, jsQR = QR fallback) ----------
-  const scannerOverlay = document.getElementById('scannerOverlay');
-  const permissionGate = document.getElementById('permissionGate');
-  const camView = document.getElementById('camView');
-  const camTarget = document.getElementById('camTarget');
-  const resultOverlay = document.getElementById('resultOverlay');
-  const resultCode = document.getElementById('resultCode');
-  const ussdPreview = document.getElementById('ussdPreview');
+  function buildUSSD(code){
+    return `*104*${code}#`;
+  }
 
+  // =========================================================
+  // ---------- SCANNER STATE ----------
+  // =========================================================
+  let stream = null;
+  let videoEl = null;
+  let canvas = null;
+  let ctx = null;
+  let rafId = null;
   let quaggaRunning = false;
-  let seenCodes = new Set();
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently:true });
-  const hitsRow = document.getElementById('hitsRow');
+  let scanning = false;
+  let foundCodes = new Set();
+  let scanStartTs = 0;
+  let fastModeTimer = null;
+  const FAST_WINDOW_MS = 5000; // force an aggressive scan pass within this window
 
-  const BARCODE_READERS = ['code_128_reader','ean_reader','ean_8_reader','code_39_reader','codabar_reader','upc_reader','i2of5_reader'];
+  function resetScannerUI(){
+    hitsRow.innerHTML = '';
+    foundCodes = new Set();
+    scanCorners.classList.remove('found');
+    scanStatus.classList.remove('hint');
+    scanStatus.textContent = 'Inascan… elekeza kamera kwenye vocha, namba zitatokea hapa chini';
+  }
 
   function openScanner(){
-    permissionGate.style.display='flex';
-    camView.style.display='none';
+    resetScannerUI();
     scannerOverlay.classList.add('show');
+    // If permission was already granted this session, skip straight to camera.
+    if(stream){
+      permissionGate.style.display = 'none';
+      camView.style.display = 'flex';
+      startScanLoop();
+    } else {
+      permissionGate.style.display = 'flex';
+      camView.style.display = 'none';
+    }
   }
+
   function closeScanner(){
-    stopCamera();
+    stopScanLoop();
     scannerOverlay.classList.remove('show');
   }
-  document.getElementById('openScanBtn').addEventListener('click', openScanner);
-  document.getElementById('navScanBtn').addEventListener('click', openScanner);
-  document.getElementById('closeScanBtn').addEventListener('click', closeScanner);
 
-  function cleanCode(raw){
-    return String(raw || '').replace(/[^0-9]/g, '');
+  async function startCamera(){
+    startCamBtn.disabled = true;
+    startCamBtn.textContent = 'Inafungua kamera…';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      videoEl = document.createElement('video');
+      videoEl.setAttribute('playsinline', '');
+      videoEl.muted = true;
+      videoEl.srcObject = stream;
+      camTarget.innerHTML = '';
+      camTarget.appendChild(videoEl);
+      await videoEl.play();
+
+      permissionGate.style.display = 'none';
+      camView.style.display = 'flex';
+      startScanLoop();
+    } catch(err){
+      permissionText.innerHTML = 'Hatukuweza kufikia kamera. Hakikisha umeruhusu ufikiaji wa kamera kwenye mipangilio ya kivinjari, kisha jaribu tena. Unaweza pia kupakia picha ya vocha au kuandika namba kwa mkono.';
+      startCamBtn.textContent = 'Jaribu Tena';
+    } finally {
+      startCamBtn.disabled = false;
+    }
   }
 
-  // Camera only starts on this explicit tap — never automatically.
-  document.getElementById('startCamBtn').addEventListener('click', async ()=>{
-    if(!window.isSecureContext){
-      showToast('Kamera inahitaji tovuti ya HTTPS. Fungua kiungo cha app, si faili lililopakuliwa.');
-      return;
-    }
-    if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-      showToast('Kivinjari hiki hakitumii kamera. Tumia Chrome au Safari mpya.');
-      return;
-    }
-    if(!window.Quagga){
-      showToast('Hakuna intaneti kupakia scanner — tumia "andika kwa mkono" chini kwa sasa.');
-      return;
-    }
-    const startBtn = document.getElementById('startCamBtn');
-    startBtn.disabled = true;
-    startBtn.textContent = 'Inafungua kamera…';
-    camTarget.innerHTML = '';
-    seenCodes.clear();
-    hitsRow.innerHTML = '';
-    Quagga.init({
-      inputStream: {
-        name: 'Live',
-        type: 'LiveStream',
-        target: camTarget,
-        constraints: { facingMode: { ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }
-      },
-      locator: { patchSize:'medium', halfSample:true },
-      numOfWorkers: 0,
-      decoder: { readers: BARCODE_READERS, multiple: false },
-      locate: true
-    }, function(err){
-      startBtn.disabled = false;
-      startBtn.textContent = 'Ruhusu & Anza Kuscan';
-      if(err){
-        let msg = 'Imeshindwa kufikia kamera.';
-        if(err.name === 'NotAllowedError') msg = 'Umekataa ruhusa ya kamera. Iruhusu kwenye mipangilio ya kivinjari.';
-        else if(err.name === 'NotFoundError') msg = 'Hakuna kamera iliyopatikana kwenye kifaa hiki.';
-        else if(err.name === 'NotReadableError') msg = 'Kamera inatumiwa na app nyingine.';
-        showToast(msg);
-        return;
+  function startScanLoop(){
+    if(scanning) return;
+    scanning = true;
+    scanStartTs = Date.now();
+
+    canvas = canvas || document.createElement('canvas');
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // jsQR pass — runs every frame via requestAnimationFrame for max speed.
+    const tickQR = () => {
+      if(!scanning) return;
+      if(videoEl && videoEl.readyState === videoEl.HAVE_ENOUGH_DATA && window.jsQR){
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const result = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
+        if(result && result.data){
+          registerHit(result.data);
+        }
       }
-      permissionGate.style.display='none';
-      camView.style.display='flex';
-      Quagga.start();
-      quaggaRunning = true;
-      Quagga.onDetected(onBarcodeDetected);
-    });
-  });
+      rafId = requestAnimationFrame(tickQR);
+    };
+    rafId = requestAnimationFrame(tickQR);
 
-  function onBarcodeDetected(result){
-    if(!result || !result.codeResult || !result.codeResult.code) return;
-    const digits = cleanCode(result.codeResult.code);
-    if(digits.length < 5) return; // ignore obvious noise
-    if(seenCodes.has(digits)) return; // already showing this one
-    seenCodes.add(digits);
-    addHitChip(digits);
-    if(navigator.vibrate) navigator.vibrate(35); // quick tick — scanning keeps going
+    // Quagga pass — barcode (1D) detection running in parallel for numeric vouchers
+    // printed as barcodes rather than QR codes.
+    if(window.Quagga && !quaggaRunning){
+      try {
+        window.Quagga.init({
+          inputStream: {
+            type: 'LiveStream',
+            target: camTarget,
+            constraints: { facingMode: 'environment' }
+          },
+          decoder: {
+            readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader', 'upc_reader']
+          },
+          locate: true,
+          numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
+          frequency: 10
+        }, (err) => {
+          if(!err){
+            window.Quagga.start();
+            quaggaRunning = true;
+          }
+        });
+        window.Quagga.onDetected((data) => {
+          const code = data && data.codeResult && data.codeResult.code;
+          if(code) registerHit(code);
+        });
+      } catch(e){ /* Quagga optional — jsQR still covers QR codes */ }
+    }
+
+    // Force an aggressive "fast window": for the first 5 seconds, sample at
+    // full-frame resolution and nudge the user with faster feedback so a
+    // match surfaces as quickly as the camera/lighting allow. After the
+    // window, keep scanning but hint the user toward better conditions or
+    // manual entry rather than pretending a code was found.
+    clearTimeout(fastModeTimer);
+    fastModeTimer = setTimeout(() => {
+      if(scanning && foundCodes.size === 0){
+        scanStatus.classList.add('hint');
+        scanStatus.textContent = 'Bado hujapata? Sogeza karibu zaidi, ongeza mwanga, au tumia "Pakia Picha" / andika namba kwa mkono.';
+      }
+    }, FAST_WINDOW_MS);
   }
 
-  function addHitChip(digits){
-    const btn = document.createElement('button');
-    btn.className = 'hit-chip';
-    btn.textContent = digits;
-    btn.addEventListener('click', ()=> onDecoded(digits));
-    hitsRow.prepend(btn);
-    document.getElementById('scanStatus').textContent = 'Namba zimeonekana — gusa moja unayotaka kutumia';
+  function stopScanLoop(){
+    scanning = false;
+    clearTimeout(fastModeTimer);
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+    if(window.Quagga && quaggaRunning){
+      try { window.Quagga.stop(); } catch(e){}
+      quaggaRunning = false;
+    }
   }
 
   function stopCamera(){
-    if(quaggaRunning && window.Quagga){
-      try{ Quagga.offDetected(onBarcodeDetected); Quagga.stop(); }catch(e){}
-      quaggaRunning = false;
+    stopScanLoop();
+    if(stream){
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
     }
+    if(videoEl){ videoEl.pause(); videoEl.srcObject = null; videoEl = null; }
     camTarget.innerHTML = '';
   }
 
-  // Stop the camera if the tab/app goes to background, so it never runs unseen.
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden) stopCamera();
-  });
+  function registerHit(raw){
+    const code = extractVoucherCode(raw);
+    if(!code || foundCodes.has(code)) return;
+    foundCodes.add(code);
+    scanCorners.classList.add('found');
+    scanStatus.classList.remove('hint');
+    scanStatus.textContent = 'Namba imepatikana! Gusa hapa chini kuithibitisha.';
 
-  function onDecoded(code){
-    stopCamera();
-    scannerOverlay.classList.remove('show');
-    if(navigator.vibrate) navigator.vibrate(120);
-    showResult(code);
+    const chip = document.createElement('button');
+    chip.className = 'hit-chip';
+    chip.textContent = code;
+    chip.addEventListener('click', () => {
+      stopCamera();
+      scannerOverlay.classList.remove('show');
+      showResult(code);
+    });
+    hitsRow.appendChild(chip);
+
+    if(navigator.vibrate) navigator.vibrate(60);
   }
 
+  // =========================================================
+  // ---------- RESULT OVERLAY ----------
+  // =========================================================
   function showResult(code){
     resultCode.textContent = code;
-    ussdPreview.textContent = `*104*${code}#`;
+    ussdPreview.textContent = buildUSSD(code);
     resultOverlay.classList.add('show');
   }
 
-  document.getElementById('closeResultBtn').addEventListener('click', ()=>{
+  function closeResult(){
     resultOverlay.classList.remove('show');
-  });
-  document.getElementById('retryBtn').addEventListener('click', ()=>{
-    resultOverlay.classList.remove('show');
-    openScanner();
-  });
-  document.getElementById('callBtn').addEventListener('click', ()=>{
-    const code = resultCode.textContent.trim();
-    if(!code || code === '—'){ showToast('Hakuna namba ya vocha'); return; }
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if(isIOS) showToast('iPhone: bonyeza "Piga" kwenye app ya simu itakayofunguka');
-    window.location.href = `tel:*104*${code}%23`;
-  });
+  }
 
-  // ---------- UPLOAD FROM GALLERY ----------
-  const fileInput = document.getElementById('fileInput');
-  document.getElementById('uploadBtn').addEventListener('click', ()=> fileInput.click());
-  fileInput.addEventListener('change', (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    if(!file.type.startsWith('image/')){ showToast('Chagua faili la picha'); return; }
+  // =========================================================
+  // ---------- IMAGE UPLOAD (fallback path, also fast) ----------
+  // =========================================================
+  function decodeImageFile(file){
     const reader = new FileReader();
-    reader.onload = (ev)=>{
-      const dataUrl = ev.target.result;
+    reader.onload = (e) => {
       const img = new Image();
-      img.onload = ()=>{
-        const MAX = 1600;
-        let w = img.width, h = img.height;
-        if(w > MAX || h > MAX){
-          const scale = Math.min(MAX / w, MAX / h);
-          w = Math.round(w * scale); h = Math.round(h * scale);
-        }
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(img, 0, 0, w, h);
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width;
+        c.height = img.height;
+        const cctx = c.getContext('2d');
+        cctx.drawImage(img, 0, 0);
 
-        function tryQR(){
-          if(!window.jsQR) return finish(null);
-          const imageData = ctx.getImageData(0, 0, w, h);
-          const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:'attemptBoth' });
-          finish(code && code.data ? cleanCode(code.data) : null);
-        }
-        function finish(digits){
-          if(digits && digits.length > 0){ showResult(digits); return; }
-          if(!window.jsQR && !window.Quagga) showToast('Hakuna intaneti kusoma msimbo — andika namba ya vocha kwa mkono chini');
-          else showToast('Imeshindwa kusoma msimbo kwenye picha hiyo — jaribu picha iliyo wazi zaidi, karibu zaidi');
+        let handled = false;
+
+        if(window.jsQR){
+          const imgData = cctx.getImageData(0, 0, c.width, c.height);
+          const result = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
+          if(result && result.data){
+            const code = extractVoucherCode(result.data);
+            if(code){ handled = true; showResult(code); }
+          }
         }
 
-        if(window.Quagga){
-          Quagga.decodeSingle({
-            src: dataUrl,
+        if(!handled && window.Quagga && window.Quagga.decodeSingle){
+          window.Quagga.decodeSingle({
+            src: e.target.result,
             numOfWorkers: 0,
-            locate: true,
-            decoder: { readers: BARCODE_READERS }
-          }, function(result){
-            const digits = result && result.codeResult ? cleanCode(result.codeResult.code) : null;
-            if(digits){ showResult(digits); } else { tryQR(); }
+            decoder: { readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader', 'upc_reader'] }
+          }, (data) => {
+            const code = data && data.codeResult && extractVoucherCode(data.codeResult.code);
+            if(code){ showResult(code); }
+            else { toast('Hatukuweza kusoma msimbo — jaribu picha bora zaidi au andika namba kwa mkono.'); }
           });
-        } else {
-          tryQR();
+        } else if(!handled){
+          toast('Hatukuweza kusoma msimbo — jaribu picha bora zaidi au andika namba kwa mkono.');
         }
       };
-      img.onerror = ()=> showToast('Imeshindwa kufungua picha hiyo');
-      img.src = dataUrl;
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  // =========================================================
+  // ---------- MANUAL ENTRY ----------
+  // =========================================================
+  function submitManual(){
+    const raw = manualInput.value.trim();
+    const code = extractVoucherCode(raw) || raw.replace(/\s+/g, '');
+    if(!code){
+      toast('Tafadhali andika namba sahihi ya vocha.');
+      return;
+    }
+    manualInput.value = '';
+    showResult(code);
+  }
+
+  // =========================================================
+  // ---------- EVENT WIRING ----------
+  // =========================================================
+  openScanBtn.addEventListener('click', openScanner);
+  navScanBtn.addEventListener('click', openScanner);
+  closeScanBtn.addEventListener('click', () => { stopCamera(); scannerOverlay.classList.remove('show'); });
+  startCamBtn.addEventListener('click', startCamera);
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(file) decodeImageFile(file);
     fileInput.value = '';
   });
 
-  // ---------- MANUAL ENTRY ----------
-  document.getElementById('manualSend').addEventListener('click', ()=>{
-    const val = document.getElementById('manualInput').value.replace(/[^0-9]/g,'');
-    if(!val){ showToast('Andika namba sahihi ya vocha'); return; }
-    showResult(val);
+  manualSend.addEventListener('click', submitManual);
+  manualInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') submitManual(); });
+
+  closeResultBtn.addEventListener('click', closeResult);
+  retryBtn.addEventListener('click', () => { closeResult(); openScanner(); });
+
+  callBtn.addEventListener('click', () => {
+    const ussd = ussdPreview.textContent;
+    // tel: links must percent-encode '#'
+    window.location.href = 'tel:' + encodeURIComponent(ussd).replace(/%2A/g, '*');
   });
-  document.getElementById('manualInput').addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter') document.getElementById('manualSend').click();
+
+  shareBtn.addEventListener('click', async () => {
+    const shareData = { title: 'Vochaster', text: 'Scan vocha yako haraka na Vochaster.', url: location.href };
+    if(navigator.share){
+      try { await navigator.share(shareData); } catch(e){ /* user cancelled */ }
+    } else if(navigator.clipboard){
+      await navigator.clipboard.writeText(location.href);
+      toast('Kiungo kimenakiliwa');
+    }
+  });
+
+  // Stop the camera if the tab is hidden, to save battery / respect privacy.
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden) stopCamera();
   });
 })();
 </script>
